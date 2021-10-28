@@ -31,13 +31,54 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
   private val baselinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
   /** 曲线路径画笔. */
   private val curvePathPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+  /** 曲线和基线阴影画笔*/
+  private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   /** 提示框画笔. */
   private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   /** 提示框文字画笔. */
   private val hintTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+  /** X轴画笔*/
+  private val xaxisPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
 
   /** 是否是静态模式,静态模式不可添加数据. */
   private val isIdleMode: Boolean = builder.isIdleMode
+
+  var xaxisTextColor = builder.xaxisTextColor
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+  var xaxisTextSize = builder.xaxisTextSize
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
+  var xaxisPaddingBot = builder.xaxisPaddingBot
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
+  var xaxisPaddingTop = builder.xaxisPaddingTop
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
+  var xaxisSpace = builder.xaxisSpace
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
+  var xaxisStartPoint = builder.xaxisStartPoint
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
+  private val drawnXaxisData = mutableListOf<String>()
 
   /** 左边距. */
   var paddingLeft = builder.paddingLeft
@@ -76,6 +117,19 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       field = value
       curveView.refresh()
     }
+  /** 阴影线粗细. */
+  var shadowThickness = builder.shadowThickness
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+  /** 阴影线颜色. */
+  var shadowColor = builder.shadowColor
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
   /** 最大显示数据点. */
   var maxShownDataPoint = builder.maxShownDataPoint
     set(value) {
@@ -219,6 +273,14 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       field = value
       curveView.refresh()
     }
+  /** 阴影和baseline交叉区域朝向*/
+  var shadowDirection = builder.shadowDirection
+    set(value) {
+      field = value
+      curveView.refresh()
+    }
+
+  var pathMeasure = PathMeasure()
 
   /** 数据点长按. */
   var onDataLongPressed: ((T) -> Unit)? = builder.onDataLongPressed
@@ -232,8 +294,11 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
   /** 绘制的数据 */
   private val drawnData = mutableListOf<DataWrapper<T>>()
 
+
   /** 曲线Path. */
   private val curvePath = Path()
+  /** 阴影path*/
+  private val shadowPath = Path()
   /** 提示框区域Path. */
   private val hintRectPath = Path()
   private val hintRectRadiusRectF = RectF()
@@ -308,6 +373,10 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     curvePathPaint.style = Paint.Style.STROKE
     curvePathPaint.strokeCap = Paint.Cap.ROUND
     curvePathPaint.strokeJoin = Paint.Join.ROUND
+
+    shadowPaint.style = Paint.Style.STROKE
+    shadowPaint.strokeCap = Paint.Cap.ROUND
+    shadowPaint.strokeWidth = 1f
 
     hintPaint.strokeCap = Paint.Cap.ROUND
     hintPaint.pathEffect = CornerPathEffect(hintPointRadius)
@@ -427,6 +496,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     val startX = drawnRect.left
     val endX = drawnRect.right
     val startY = drawnRect.bottom
+    val drawnXWidth = calculateTextHeight()
     // 可绘制的内容总高度和宽度
     val drawnHeight = drawnRect.height()
     val drawnWidth = drawnRect.width()
@@ -438,7 +508,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     drawBaseLine(cvs, drawnHeight, startX, startY, endX)
 
     // 绘制曲线
-    drawCurveLine(cvs, drawnWidth, drawnHeight, startX, startY)
+    drawCurveLine(cvs, drawnWidth, drawnHeight, startX, startY, drawnXWidth)
 
     // 绘制标记.
     drawMark(cvs)
@@ -487,6 +557,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       baselinePaint.color = baselineColor
 
       val y = startY - drawnHeight * it.yScale
+//      println("---${startX} ${startY} ${y} ${it.yScale} ${drawnHeight}")
       cvs.drawLine(startX.toFloat(), y, endX.toFloat(), y, baselinePaint)
     }
   }
@@ -554,6 +625,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     }
   }
 
+
   /**
    * 绘制曲线.
    * @param cvs Canvas
@@ -562,10 +634,11 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
    * @param startX Int
    * @param startY Int
    */
-  private fun drawCurveLine(cvs: Canvas, drawnWidth: Int, drawnHeight: Int, startX: Int, startY: Int) {
+  private fun drawCurveLine(cvs: Canvas, drawnWidth: Int, drawnHeight: Int, startX: Int, startY: Int, drawnXWidth: Int) {
     if (drawnData.isNotEmpty()) {
       curvePath.reset()
       val size = drawnData.size
+      var isFirstNotShowPoint = true
 
       calEachDataWidth(drawnWidth)
       calXAndY(startX, startY, drawnHeight)
@@ -635,6 +708,9 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
           curvePath.cubicTo(firstControlPointX, firstControlPointY, secondControlPointX, secondControlPointY, currentPointX, currentPointY)
         }
 
+        //绘制x轴
+        drawXaisTextView(cvs, index, currentPointX, drawnHeight, drawnXWidth)
+
         // 更新
         prePreviousPointX = previousPointX
         prePreviousPointY = previousPointY
@@ -646,7 +722,64 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
 
       curvePathPaint.color = curveColor
       curvePathPaint.strokeWidth = curveThickness
+
+      //绘制阴影
+      drawShadowView(cvs, curvePath, drawnHeight, startY)
+
       cvs.drawPath(curvePath, curvePathPaint)
+    }
+  }
+
+
+  private fun drawXaisTextView(cvs: Canvas, index:Int, currentPointX:Float, drawnHeight: Int, drawnXWidth:Int){
+    if (xaxisSpace > 0 && xaxisStartPoint > 0 && (index-xaxisStartPoint+1) % xaxisSpace == 0){
+      xaxisPaint.textSize = xaxisTextSize
+      xaxisPaint.color = xaxisTextColor
+      xaxisPaint.textAlign = Paint.Align.LEFT
+      cvs.drawText(drawnData[index].data.xValue, currentPointX, drawnHeight.toFloat() + drawnXWidth - paddingBot, xaxisPaint)//+drawnXWidth
+    }
+  }
+
+
+  /**
+   * 绘制曲线和baseline区域
+   */
+  private fun drawShadowView(cvs: Canvas, curvePath: Path, drawnHeight: Int, startY: Int) {
+    if (shadowDirection == Direction.NONE) return
+    baseline?.let {
+      pathMeasure.setPath(curvePath, false)
+      shadowPath.reset()
+      val step = 0.001f
+      val len = pathMeasure.length
+      val point = FloatArray(2)
+      var t = 0f
+      val y = startY - drawnHeight * it.yScale
+      while (t <= 1) {
+        val dis = t * len
+        pathMeasure.getPosTan(dis, point, null)
+        when (shadowDirection) {
+          Direction.UP -> {
+            if (point[1] < y) {
+              shadowPath.moveTo(point[0], point[1])
+              shadowPath.lineTo(point[0], y)
+            }
+          }
+          Direction.DOWN -> {
+            if (point[1] > y) {
+              shadowPath.moveTo(point[0], point[1])
+              shadowPath.lineTo(point[0], y)
+            }
+          }
+          else -> {
+            shadowPath.moveTo(point[0], point[1])
+            shadowPath.lineTo(point[0], y)
+          }
+        }
+        t += step
+      }
+      shadowPaint.color = shadowColor
+      shadowPaint.strokeWidth = shadowThickness
+      cvs.drawPath(shadowPath, shadowPaint)
     }
   }
 
@@ -1018,6 +1151,21 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
   }
 
   /**
+   * 计算宽度.
+   * @return Int
+   */
+  private fun calculateTextHeight(): Int {
+    if (xaxisSpace <= 0) return 0
+    xaxisPaint.textSize = xaxisTextSize
+    var height = 0f
+    val fontMetrics = xaxisPaint.getFontMetrics()
+    val height1 = fontMetrics.descent - fontMetrics.ascent
+    val height2 = fontMetrics.bottom - fontMetrics.top
+    height = if (height1 > height2) height1 else height2
+    return (paddingTop + paddingBot + height).toInt()
+  }
+
+  /**
    * 移动到正确的位置.
    */
   private fun moveToRightPosition() {
@@ -1079,6 +1227,10 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
   private fun checkMin(min: Int, value: Int): Int {
     if (min > value) return min
     return value
+  }
+
+  enum class Direction {
+    UP, DOWN, BOTH, NONE
   }
 
   private class DataWrapper<T>(

@@ -5,11 +5,11 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.TypedValue
+import android.view.Gravity
 import com.tlz.curveview.CurveRender
 import com.tlz.curveview.TlzCurveView
+import com.tlz.curveview.Xaxis
 import com.tlz.curveview.Yaxis
-import android.view.Gravity
-import android.text.TextPaint
 
 
 /**
@@ -26,9 +26,11 @@ private fun Context.sp2px(sp: Float) = TypedValue.applyDimension(TypedValue.COMP
 private fun Context.sp2px(sp: Int) = sp2px(sp.toFloat()).toInt()
 
 class DefCurveView<T : DefData> internal constructor(private val ctx: Context) {
-
   private var yaxis: Yaxis? = null
+  private var xaxis: Xaxis? = null
   private var curveRender: CurveRender<T>? = null
+  //是否显示动态x轴
+  private var isShowXaxisDynamic = false
 
   fun yaxis(setup: YaxisBuilder.() -> Unit): DefYaxis {
     val builder = YaxisBuilder(ctx)
@@ -36,14 +38,26 @@ class DefCurveView<T : DefData> internal constructor(private val ctx: Context) {
     return DefYaxis(builder).also { yaxis = it }
   }
 
+  /**
+   * 静态的x轴，不用
+   */
+  fun xaxis(setup: XaxisBuilder.() -> Unit): DefXaxis {
+    val builder = XaxisBuilder(ctx)
+    setup.invoke(builder)
+    return DefXaxis(builder).also { xaxis = it }
+  }
+
   fun curveRender(setup: CurveRenderBuilder<T>.() -> Unit): DefCurveRender<T> {
     val builder = CurveRenderBuilder<T>(ctx)
     setup.invoke(builder)
-    return DefCurveRender(DefDataset(), builder).also { curveRender = it }
+    return DefCurveRender(DefDataset(), builder).also {
+      curveRender = it
+      isShowXaxisDynamic = builder.xaxisSpace > 0
+    }
   }
 
   internal fun create(curveView: TlzCurveView) {
-    curveView.setup(yaxis = yaxis, curveRender = curveRender)
+    curveView.setup(xaxis = xaxis,yaxis = yaxis, curveRender = curveRender, isShowXaxisDynamic=isShowXaxisDynamic)
   }
 }
 
@@ -61,6 +75,26 @@ class YaxisBuilder internal constructor(ctx: Context) {
   var paddingTop = paddingRight
   /** 下边距. */
   var paddingBot = paddingTop
+
+  /** Y轴item. */
+  var items: Array<Any> = arrayOf()
+
+}
+
+class XaxisBuilder internal constructor(ctx: Context) {
+
+  /** 文字大小. */
+  var textSize: Float = ctx.dp2px(16f)
+  /** 文字颜色. */
+  var textColor = Color.DKGRAY
+  /** 上边距. */
+  var paddingTop = ctx.dp2px(10)
+  /** 下边距. */
+  var paddingBot = ctx.dp2px(10)
+  /** 左边距. */
+  var paddingLeft = paddingTop
+  /** 右边距. */
+  var paddingRight = paddingBot
 
   /** Y轴item. */
   var items: Array<Any> = arrayOf()
@@ -85,6 +119,12 @@ class CurveRenderBuilder<T> internal constructor(ctx: Context) {
   var curveThickness: Float = ctx.dp2px(2f)
   /** 曲线颜色. */
   var curveColor = Color.RED
+  /** 阴影线粗细. */
+  var shadowThickness: Float = ctx.dp2px(2f)
+  /** 阴影朝向*/
+  var shadowDirection = DefCurveRender.Direction.NONE
+  /** 阴影线颜色. */
+  var shadowColor = Color.RED
   /** 最大显示数据点. */
   var maxShownDataPoint = 10
   /** 平滑移动时间. */
@@ -103,6 +143,20 @@ class CurveRenderBuilder<T> internal constructor(ctx: Context) {
   var baselineThickness = ctx.dp2px(1f)
   /** 基线颜色. */
   var baselineColor = Color.BLUE
+
+  /** X轴文字大小. */
+  var xaxisTextSize: Float = ctx.dp2px(16f)
+  /** X轴文字颜色. */
+  var xaxisTextColor = Color.DKGRAY
+  /** X轴上边距. */
+  var xaxisPaddingTop = ctx.dp2px(10)
+  /** X轴下边距. */
+  var xaxisPaddingBot = ctx.dp2px(10)
+  /** 间隔显示x坐标的点数，如果设置为<=0则不显示Y轴*/
+  var xaxisSpace = 0
+  /** 绘制的起始点, 必须大于0*/
+  var xaxisStartPoint = 3
+
 
   /** 提示框方向. */
   var hintRectOrientation = DefCurueHintOrientation.H
@@ -174,6 +228,16 @@ internal fun Paint.textOffsetY(gravity: Int = Gravity.CENTER): Int {
     offset += height
   }
   return offset
+}
+
+/**
+ * Y轴偏移.
+ * @receiver Paint
+ * @param gravity Int
+ * @return Int
+ */
+internal fun Paint.textOffsetX(gravity: Int = Gravity.CENTER): Int {
+  return 0
 }
 
 enum class DefCurueHintOrientation {

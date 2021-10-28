@@ -15,6 +15,8 @@ abstract class Xaxis : CurveView {
 
     internal lateinit var curveView: TlzCurveView
 
+    open var items: Array<Any> = arrayOf()
+
     @CallSuper
     override fun setupCurveView(view: TlzCurveView) {
         this.curveView = view

@@ -9,6 +9,7 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
 
@@ -28,6 +29,8 @@ class TlzCurveView(ctx: Context, attrs: AttributeSet) : View(ctx, attrs) {
     /** 曲线渲染器. */
     private var curveRender: CurveRender<out Any>? = null
 
+    private var isShowXaxisDynamic = false
+
     private val clearPaint = Paint()
 
     private val calcRect = Rect()
@@ -44,11 +47,12 @@ class TlzCurveView(ctx: Context, attrs: AttributeSet) : View(ctx, attrs) {
      * @param yaxis Yaxis?
      * @param curveRender CurveRender<T>?
      */
-    fun <T : Any> setup(xaxis: Xaxis? = null, yaxis: Yaxis? = null, curveRender: CurveRender<T>? = null) {
+    fun <T : Any> setup(xaxis: Xaxis? = null, yaxis: Yaxis? = null, curveRender: CurveRender<T>? = null, isShowXaxisDynamic: Boolean = false) {
         this.xaxis = xaxis?.also { it.setupCurveView(this) }
         this.yaxis = yaxis?.also { it.setupCurveView(this) }
         this.dataset = curveRender?.dataset?.also { it.setupCurveView(this) }
         this.curveRender = curveRender?.also { it.setupCurveView(this) }
+        this.isShowXaxisDynamic = isShowXaxisDynamic
         postInvalidate()
     }
 
@@ -70,7 +74,8 @@ class TlzCurveView(ctx: Context, attrs: AttributeSet) : View(ctx, attrs) {
         super.onDraw(canvas)
         canvas?.let { cvs ->
             // 获取xy轴需要的宽高
-            val xaxisHeight = this.xaxis?.getMeasureHeight() ?: 0
+            val hp = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 20f, resources.displayMetrics)
+            val xaxisHeight = if (isShowXaxisDynamic) hp.toInt() else 0//this.xaxis?.getMeasureHeight() ?: 0
             val yaxisWidth = this.yaxis?.getMeasureWidth() ?: 0
 
             calcRect.left = paddingLeft

@@ -1,5 +1,6 @@
 package com.tlz.curveview.example
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -73,21 +74,43 @@ class MainActivity : AppCompatActivity() {
       (curve_view.curveRender<Data>() as? DefCurveRender<Data>)?.stop()
     }
 
+    btn_null.setOnClickListener {
+      startActivity(Intent(this@MainActivity, BezerActivity::class.java))
+    }
+
 
     // 初始化曲线为默认样式 静态模式
     curve_view_idle.setupByDef<Data> {
       yaxis {
-        items = Array(6) {
-          it * 20
+        items = Array(5) {
+          String.format("%.1f", it * 0.2)
         }
       }
+
+      /**
+       * 固定坐标轴
+       */
+//      xaxis {
+//        items = Array(5) {
+//          String.format("%d", it * 2)
+//        }
+//      }
 
       curveRender = curveRender {
         isIdleMode = true
 
-        baseline = Data(60f)
+        baseline = Data(0.5f)
+        baselineColor = Color.RED
+        baselineThickness = 4f
 
         curveColor = Color.GREEN
+
+        shadowColor = Color.BLUE
+        shadowDirection = DefCurveRender.Direction.DOWN
+        shadowThickness = 0.5f
+
+        xaxisSpace = 5
+//        xaxisStartPoint = 3
 
         hintRectBg = Color.RED
         hintTextColor = Color.WHITE
@@ -104,7 +127,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     curve_view_idle.dataset<Data>()?.setData(List(50) {
-      Data(Random().nextInt(100).toFloat())
+//      Data(Random().nextInt(100).toFloat())
+      Data(Random().nextFloat())
     })
 
     btn_scale.setOnClickListener {
@@ -116,8 +140,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     btn_change.setOnClickListener { _ ->
-      curve_view_idle.dataset<Data>()?.setData(List(50) {
-        Data(Random().nextInt(100).toFloat())
+      curve_view_idle.dataset<Data>()?.setData(List(100) {
+        Data(Random().nextFloat())
+//        Data(Random().nextInt(100).toFloat())
       })
     }
   }
@@ -125,10 +150,13 @@ class MainActivity : AppCompatActivity() {
   class Data(val value: Float, val time: Long = System.currentTimeMillis(), private val alert: String = "131") : DefData {
 
     override val yScale: Float
-      get() = value / 100
+      get() = if (value <= 1) value else value/100
 
     override val mark: String
       get() = alert
+
+    override val xValue: String
+      get() = SimpleDateFormat("HH:mm:ss").format(Date())
   }
 
   private val dateFormat = SimpleDateFormat("hh:mm:ss", Locale.CHINA)
