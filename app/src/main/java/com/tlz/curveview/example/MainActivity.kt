@@ -141,19 +141,25 @@ class MainActivity : AppCompatActivity() {
 
     btn_change.setOnClickListener { _ ->
       curve_view_idle.dataset<Data>()?.setData(List(100) {
-        Data(Random().nextFloat())
-//        Data(Random().nextInt(100).toFloat())
+        Data(Random().nextFloat(),isShow = false)
+//        if (it >10 && it<40){
+//        }else{
+//          Data(Random().nextFloat())
+//        }
       })
     }
   }
 
-  class Data(val value: Float, val time: Long = System.currentTimeMillis(), private val alert: String = "131") : DefData {
+  class Data(val value: Float, val time: Long = System.currentTimeMillis(),val isShow:Boolean = true, private val alert: String = "131") : DefData {
 
     override val yScale: Float
       get() = if (value <= 1) value else value/100
 
     override val mark: String
       get() = alert
+
+    override val isShown: Boolean
+      get() = isShow
 
     override val xValue: String
       get() = SimpleDateFormat("HH:mm:ss").format(Date())

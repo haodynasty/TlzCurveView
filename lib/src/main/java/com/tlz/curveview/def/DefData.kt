@@ -15,4 +15,7 @@ interface DefData {
 
   /** 标记. */
   val mark: String
+
+  /** 是否显示该点 */
+  val isShown: Boolean
 }

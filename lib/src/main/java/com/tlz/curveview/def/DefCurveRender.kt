@@ -638,7 +638,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     if (drawnData.isNotEmpty()) {
       curvePath.reset()
       val size = drawnData.size
-      var isFirstNotShowPoint = true
+      var isNotShow = false
 
       calEachDataWidth(drawnWidth)
       calXAndY(startX, startY, drawnHeight)
@@ -652,13 +652,31 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       var nextPointX: Float
       var nextPointY: Float
 
+      curvePathPaint.color = curveColor
+      curvePathPaint.strokeWidth = curveThickness
+      println("开始绘制")
       drawnData.forEachIndexed { index, dataWrapper ->
         if (currentPointX.isNaN()) {
           currentPointX = dataWrapper.x
           currentPointY = dataWrapper.y
         }
+
+        //绘制x轴
+        drawXaisTextView(cvs, index, currentPointX, drawnHeight, drawnXWidth)
+
+        //如果是不显示的点直接跳过
+        println("isSHown:"+dataWrapper.isShown)
+        if (!dataWrapper.isShown){
+          isNotShow = true
+          println("跳过绘制")
+          return@forEachIndexed
+        }else if(isNotShow){
+          isNotShow = false
+          curvePath.rMoveTo(currentPointX, currentPointY)
+        }
+
+        //是第一个点?
         if (previousPointX.isNaN()) {
-          //是第一个点?
           if (index > 0) {
             previousPointX = drawnData[index - 1].x
             previousPointY = drawnData[index - 1].y
@@ -669,8 +687,8 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
           }
         }
 
+        //是前两个点?
         if (prePreviousPointX.isNaN()) {
-          //是前两个点?
           if (index > 1) {
             prePreviousPointX = drawnData[index - 2].x
             prePreviousPointY = drawnData[index - 2].y
@@ -708,9 +726,6 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
           curvePath.cubicTo(firstControlPointX, firstControlPointY, secondControlPointX, secondControlPointY, currentPointX, currentPointY)
         }
 
-        //绘制x轴
-        drawXaisTextView(cvs, index, currentPointX, drawnHeight, drawnXWidth)
-
         // 更新
         prePreviousPointX = previousPointX
         prePreviousPointY = previousPointY
@@ -719,9 +734,6 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
         currentPointX = nextPointX
         currentPointY = nextPointY
       }
-
-      curvePathPaint.color = curveColor
-      curvePathPaint.strokeWidth = curveThickness
 
       //绘制阴影
       drawShadowView(cvs, curvePath, drawnHeight, startY)
@@ -959,7 +971,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     this.scaleAnimateProgress = 0f
     this.drawnData.clear()
     data.mapTo(this.drawnData) {
-      DataWrapper(it, isShown = true)
+      DataWrapper(it, isShown = it.isShown)
     }
     this.centerDataPosition = data.size / 2
     curveView.refresh()
@@ -981,7 +993,9 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
    */
   private fun checkMinWaitQueue() {
     if (waitDrawnDataQueue.isNotEmpty() && (drawnData.size < 2 || drawnData.firstOrNull()?.isShown == true)) {
-      drawnData.add(0, DataWrapper(waitDrawnDataQueue.poll(), isShown = drawnData.size == 0))
+//      drawnData.add(0, DataWrapper(waitDrawnDataQueue.poll(), isShown = drawnData.size == 0))
+      val data = waitDrawnDataQueue.poll()
+      drawnData.add(0, DataWrapper(data, isShown = data.isShown))
       // 1个点不执行动画
       if (drawnData.size > 1 && animator?.isRunning != true) {
         startAnimator()
