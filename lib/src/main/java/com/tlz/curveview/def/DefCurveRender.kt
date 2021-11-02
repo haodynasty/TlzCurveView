@@ -651,29 +651,30 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       var currentPointY = Float.NaN
       var nextPointX: Float
       var nextPointY: Float
+      var tmpPointX: Float = 0f
+      var tmpPointY: Float = 0f
 
       curvePathPaint.color = curveColor
       curvePathPaint.strokeWidth = curveThickness
-      println("开始绘制")
       drawnData.forEachIndexed { index, dataWrapper ->
-        if (currentPointX.isNaN()) {
-          currentPointX = dataWrapper.x
-          currentPointY = dataWrapper.y
-        }
+        currentPointX = dataWrapper.x
+        currentPointY = dataWrapper.y
 
         //绘制x轴
         drawXaisTextView(cvs, index, currentPointX, drawnHeight, drawnXWidth)
 
         //如果是不显示的点直接跳过
-        println("isSHown:"+dataWrapper.isShown)
-        if (!dataWrapper.isShown){
+//        println("show:"+index+" "+" x"+dataWrapper.x+' '+dataWrapper.isShowPoint)
+        if (!dataWrapper.isShowPoint){
           isNotShow = true
-          println("跳过绘制")
           return@forEachIndexed
         }else if(isNotShow){
           isNotShow = false
-          curvePath.rMoveTo(currentPointX, currentPointY)
+          curvePath.rMoveTo(dataWrapper.x-tmpPointX, dataWrapper.y-tmpPointY)
         }
+
+        tmpPointX = dataWrapper.x
+        tmpPointY = dataWrapper.y
 
         //是第一个点?
         if (previousPointX.isNaN()) {
@@ -723,7 +724,11 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
           val secondControlPointX = currentPointX - (.05f * secondDiffX)
           val secondControlPointY = currentPointY - (.05f * secondDiffY)
           //画出曲线
-          curvePath.cubicTo(firstControlPointX, firstControlPointY, secondControlPointX, secondControlPointY, currentPointX, currentPointY)
+          if (index > 1 && !drawnData[index - 1].isShowPoint){
+            curvePath.lineTo(currentPointX, currentPointY)
+          }else{
+            curvePath.cubicTo(firstControlPointX, firstControlPointY, secondControlPointX, secondControlPointY, currentPointX, currentPointY)
+          }
         }
 
         // 更新
@@ -762,33 +767,37 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       pathMeasure.setPath(curvePath, false)
       shadowPath.reset()
       val step = 0.001f
-      val len = pathMeasure.length
+      var len = pathMeasure.length
       val point = FloatArray(2)
       var t = 0f
       val y = startY - drawnHeight * it.yScale
-      while (t <= 1) {
-        val dis = t * len
-        pathMeasure.getPosTan(dis, point, null)
-        when (shadowDirection) {
-          Direction.UP -> {
-            if (point[1] < y) {
+      do {
+        len = pathMeasure.length
+        t = 0f
+        while (t <= 1) {
+          val dis = t * len
+          pathMeasure.getPosTan(dis, point, null)
+          when (shadowDirection) {
+            Direction.UP -> {
+              if (point[1] < y) {
+                shadowPath.moveTo(point[0], point[1])
+                shadowPath.lineTo(point[0], y)
+              }
+            }
+            Direction.DOWN -> {
+              if (point[1] > y) {
+                shadowPath.moveTo(point[0], point[1])
+                shadowPath.lineTo(point[0], y)
+              }
+            }
+            else -> {
               shadowPath.moveTo(point[0], point[1])
               shadowPath.lineTo(point[0], y)
             }
           }
-          Direction.DOWN -> {
-            if (point[1] > y) {
-              shadowPath.moveTo(point[0], point[1])
-              shadowPath.lineTo(point[0], y)
-            }
-          }
-          else -> {
-            shadowPath.moveTo(point[0], point[1])
-            shadowPath.lineTo(point[0], y)
-          }
+          t += step
         }
-        t += step
-      }
+      } while(pathMeasure.nextContour())
       shadowPaint.color = shadowColor
       shadowPaint.strokeWidth = shadowThickness
       cvs.drawPath(shadowPath, shadowPaint)
@@ -971,7 +980,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
     this.scaleAnimateProgress = 0f
     this.drawnData.clear()
     data.mapTo(this.drawnData) {
-      DataWrapper(it, isShown = it.isShown)
+      DataWrapper(it, isShown = true, isShowPoint = it.isShown)
     }
     this.centerDataPosition = data.size / 2
     curveView.refresh()
@@ -993,9 +1002,8 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
    */
   private fun checkMinWaitQueue() {
     if (waitDrawnDataQueue.isNotEmpty() && (drawnData.size < 2 || drawnData.firstOrNull()?.isShown == true)) {
-//      drawnData.add(0, DataWrapper(waitDrawnDataQueue.poll(), isShown = drawnData.size == 0))
       val data = waitDrawnDataQueue.poll()
-      drawnData.add(0, DataWrapper(data, isShown = data.isShown))
+      drawnData.add(0, DataWrapper(data, isShown = drawnData.size == 0, isShowPoint = data.isShown))
       // 1个点不执行动画
       if (drawnData.size > 1 && animator?.isRunning != true) {
         startAnimator()
@@ -1251,6 +1259,8 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
       val data: T,
       var x: Float = -1f,
       var y: Float = -1f,
+      //是否显示该点
+      var isShowPoint: Boolean = true,
       var isShown: Boolean = false) {
     val id = System.currentTimeMillis()
     val markRect = RectF()

@@ -58,11 +58,17 @@ class MainActivity : AppCompatActivity() {
       isStop = false
       (curve_view.curveRender<Data>() as? DefCurveRender<Data>)?.start()
       Thread {
+        var i=0
         while (!isStop) {
           Thread.sleep(2000)
+          i++
           runOnUiThread {
             if (!isStop) {
-              curve_view.dataset<Data>()?.appendData(Data(Random().nextInt(100).toFloat()))
+              if (i > 10 && i < 20){
+                curve_view.dataset<Data>()?.appendData(Data(Random().nextInt(100).toFloat(), isShow = false))
+              }else{
+                curve_view.dataset<Data>()?.appendData(Data(Random().nextInt(100).toFloat()))
+              }
             }
           }
         }
@@ -128,7 +134,11 @@ class MainActivity : AppCompatActivity() {
 
     curve_view_idle.dataset<Data>()?.setData(List(50) {
 //      Data(Random().nextInt(100).toFloat())
-      Data(Random().nextFloat())
+      if (it >=10 && it<20){
+        Data(0.5f,isShow = false)
+      }else{
+        Data(Random().nextFloat())
+      }
     })
 
     btn_scale.setOnClickListener {
@@ -140,12 +150,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     btn_change.setOnClickListener { _ ->
-      curve_view_idle.dataset<Data>()?.setData(List(100) {
-        Data(Random().nextFloat(),isShow = false)
-//        if (it >10 && it<40){
-//        }else{
-//          Data(Random().nextFloat())
-//        }
+      curve_view_idle.dataset<Data>()?.setData(List(50) {
+        if (it>40){
+          Data(0.5f,isShow = false)
+        }else{
+          Data(Random().nextFloat())
+        }
       })
     }
   }
