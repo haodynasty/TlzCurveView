@@ -1128,27 +1128,35 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
   private var moveAnimator: ValueAnimator? = null
 
   /**
-   * 放大.
+   * 放大
+   * @param onResult 动画执行完后执行，参数为放缩后界面点数
    */
-  fun scale() {
+  fun scale(onResult: ((Int) -> Unit)? = null)  {
     val maxScale = drawnData.size / maxShownDataPoint + 1
-    if (curScale >= maxScale) return
-    smoothScaleOrZoom(curScale + 1)
+    if (curScale >= maxScale) {
+      onResult?.invoke(drawnData.size/maxScale)
+      return
+    }
+    smoothScaleOrZoom(curScale + 1, onResult)
   }
 
   /**
-   * 缩小.
+   * 缩小
+   * @param onResult 动画执行完后执行，参数为放缩后界面点数
    */
-  fun zoom() {
-    if (curScale <= 1) return
-    smoothScaleOrZoom(curScale - 1)
+  fun zoom(onResult: ((Int) -> Unit)? = null) {
+    if (curScale <= 1) {
+      onResult?.invoke(drawnData.size)
+      return
+    }
+    smoothScaleOrZoom(curScale - 1, onResult)
   }
 
   /**
    * 平滑缩放.
    * @param scale Int
    */
-  private fun smoothScaleOrZoom(scale: Int) {
+  private fun smoothScaleOrZoom(scale: Int, onResult: ((Int) -> Unit)? = null) {
     // 在执行中, 不再次执行
     if (scaleAnimator?.isRunning == true || moveAnimator?.isRunning == true) return
     nextScale = scale
@@ -1166,6 +1174,7 @@ class DefCurveRender<T : DefData> internal constructor(dataset: DefDataset<T>, b
           scaleAnimateProgress = 0f
           curveView.refresh()
           moveToRightPosition()
+          onResult?.invoke(drawnData.size/curScale)
         }
       })
       start()

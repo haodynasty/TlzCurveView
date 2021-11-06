@@ -125,7 +125,7 @@ class CurveRenderBuilder<T> internal constructor(ctx: Context) {
   var shadowDirection = DefCurveRender.Direction.NONE
   /** 阴影线颜色. */
   var shadowColor = Color.RED
-  /** 最大显示数据点. */
+  /** 放缩时最大显示数据点. */
   var maxShownDataPoint = 10
   /** 平滑移动时间. */
   var smoothMoveDuration: Long = 2000L

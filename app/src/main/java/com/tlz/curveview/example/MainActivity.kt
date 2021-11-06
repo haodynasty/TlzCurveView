@@ -45,6 +45,11 @@ class MainActivity : AppCompatActivity() {
           "${data.value}\n${data.time.toDate()}"
         }
 
+        this.smoothMoveDuration = 1000L
+
+        xaxisSpace = 5
+        xaxisStartPoint = 0
+
         onDataLongPressed = { data ->
           Toast.makeText(this@MainActivity, "长按数据:${data.value}", Toast.LENGTH_LONG).show()
         }
@@ -115,8 +120,12 @@ class MainActivity : AppCompatActivity() {
         shadowDirection = DefCurveRender.Direction.DOWN
         shadowThickness = 0.5f
 
-        xaxisSpace = 5
-//        xaxisStartPoint = 3
+        //动态X坐标，间隔5个点一个x坐标
+        xaxisSpace = 10
+        xaxisStartPoint = 3
+
+        //放缩时决定放大倍数，越小（3~50）放大倍数越大
+        maxShownDataPoint = 10
 
         hintRectBg = Color.RED
         hintTextColor = Color.WHITE
@@ -142,15 +151,21 @@ class MainActivity : AppCompatActivity() {
     })
 
     btn_scale.setOnClickListener {
-      curveRender.scale()
+      curveRender.scale { points ->
+        //动态设置x轴的数量
+        curveRender.xaxisSpace = points / 5
+      }
     }
 
     btn_zoom.setOnClickListener {
-      curveRender.zoom()
+      curveRender.zoom { points ->
+        //动态设置x轴的数量
+        curveRender.xaxisSpace=points/5
+      }
     }
 
     btn_change.setOnClickListener { _ ->
-      curve_view_idle.dataset<Data>()?.setData(List(50) {
+      curve_view_idle.dataset<Data>()?.setData(List(100) {
         if (it>40){
           Data(0.5f,isShow = false)
         }else{
